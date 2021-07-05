@@ -1,0 +1,14 @@
+.table {
+    min-width: 500px;
+    max-width: 800px;
+}
+.container {
+    max-width: 800px;
+}
+.activeCell {
+    background-color: RGBA(207,232,252,0.5);
+    transition: 1s
+}
+.passiveCell {
+    transition: 0.5s;
+}
