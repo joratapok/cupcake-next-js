@@ -132,7 +132,7 @@ export default function Home() {
                         </TableBody>
                     </Table>
                 </TableContainer>
-                <Link  href="/TryPage"><a><h3>Unsubscribe long poll</h3></a></Link>
+                <Link  href="/unsubscribe"><a><h3>Unsubscribe long poll</h3></a></Link>
             </Container>
         </MainLayout>
     )
