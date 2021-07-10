@@ -64,11 +64,9 @@ const StyledTableRow = withStyles((theme: Theme) =>
     })
 )(TableRow)
 
-const queryClient = new QueryClient()
-const initial = [0, 0, 0, 0, 0, 0]
-
 const TableCurrency = () => {
     const classes = useStyles()
+    const initial = [0, 0, 0, 0, 0, 0]
     const markets: Array<MarketsType> = ['first', 'second', 'third']
     const currencies = ['RUB/CUPCAKE', 'USD/CUPCAKE', 'EUR/CUPCAKE', 'RUB/USD', 'RUB/EUR', 'EUR/USD']
     const initUrl = 'http://localhost:3000/api/v1/'
@@ -155,6 +153,7 @@ function DrawTable ({currency, ind, firstMarket, secondMarket, thirdMarket}: dra
 }
 
 export default function Home() {
+    const queryClient = new QueryClient()
     return (
         <QueryClientProvider client={queryClient}>
             <TableCurrency />
