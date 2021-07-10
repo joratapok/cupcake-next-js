@@ -1,6 +1,4 @@
-import {MainLayout} from "../Components/MainLayout";
-import {useEffect, useState} from "react";
-import {calcCurrencyValues} from "../utils/calcCurrensies";
+import { useEffect, useMemo } from "react";
 import { withStyles, Theme, createStyles, makeStyles } from '@material-ui/core/styles'
 import Paper from '@material-ui/core/Paper'
 import Container from '@material-ui/core/Container'
@@ -10,9 +8,14 @@ import TableCell from '@material-ui/core/TableCell'
 import TableContainer from '@material-ui/core/TableContainer'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
-import Link from "next/link";
-import { findLowestValue } from "../utils/findLowestValue";
+import Link from 'next/link'
+import { QueryClientProvider, QueryClient } from 'react-query'
+import { findLowestValue } from '../utils/findLowestValue'
+import { calcCurrencyValues } from '../utils/calcCurrensies'
+import { MainLayout } from '../Components/MainLayout'
 import c from '../styles/indexPage.module.css'
+import useLongPolling from '../hooks/useLongPolling'
+import useShortPolling from '../hooks/useShortPolling'
 
 export type ActualCurrenciesType = {
     rates: RatesType
@@ -25,9 +28,7 @@ export type RatesType = {
     'USD': number
     'EUR': number
 }
-
-type MarketsType = 'first' | 'second' | 'third'
-
+export type MarketsType = 'first' | 'second' | 'third'
 type drawTablePropsType = {
     currency: string
     ind: number
@@ -53,7 +54,6 @@ const useStyles = makeStyles({
         transition: '0.5s'
     }
 })
-
 const StyledTableRow = withStyles((theme: Theme) =>
     createStyles({
         root: {
@@ -64,49 +64,45 @@ const StyledTableRow = withStyles((theme: Theme) =>
     })
 )(TableRow)
 
+const queryClient = new QueryClient()
 const initial = [0, 0, 0, 0, 0, 0]
-let unSubscribe = false
-const setUnSubscribe = (val: true | false): void => {
-    unSubscribe = val
-}
 
-export default function Home() {
+const TableCurrency = () => {
     const classes = useStyles()
-    const [firstMarket, setFirstMarket] = useState<Array<number>>(initial)
-    const [secondMarket, setSecondMarket] = useState<Array<number>>(initial)
-    const [thirdMarket, setThirdMarket] = useState<Array<number>>(initial)
     const markets: Array<MarketsType> = ['first', 'second', 'third']
     const currencies = ['RUB/CUPCAKE', 'USD/CUPCAKE', 'EUR/CUPCAKE', 'RUB/USD', 'RUB/EUR', 'EUR/USD']
+    const initUrl = 'http://localhost:3000/api/v1/'
 
+    let unSubscribe: boolean = false
+    const setUnSubscribe = (toggle: boolean): void => {
+        unSubscribe = toggle
+    }
     useEffect(() => {
         setUnSubscribe(false)
-        const subscribeToMarket = async (market: MarketsType): Promise<void> => {
-            if (unSubscribe) return undefined
-            try {
-                const response = await fetch(`http://localhost:3000/api/v1/${market}/poll`)
-                if (response.status === 200) {
-                    const currency: ActualCurrenciesType = await response.json()
-                    if (market === 'first') setFirstMarket(calcCurrencyValues(currency.rates))
-                    if (market === 'second') setSecondMarket(calcCurrencyValues(currency.rates))
-                    if (market === 'third') setThirdMarket(calcCurrencyValues(currency.rates))
-                    await subscribeToMarket(market)
-                }
-                await new Promise(resolve => setTimeout(resolve, 15000))
-                await subscribeToMarket(market)
-            } catch (e) {
-                console.error('>>>>>>>')
-                if (market === 'first') setFirstMarket(initial)
-                if (market === 'second') setSecondMarket(initial)
-                if (market === 'third') setThirdMarket(initial)
-                await new Promise(resolve => setTimeout(resolve, 15000))
-                await subscribeToMarket(market)
-            }
-        }
-        subscribeToMarket('first')
-        subscribeToMarket('second')
-        subscribeToMarket('third')
         return () => setUnSubscribe(true)
     }, [])
+
+    const firstMarketLongPoll = useLongPolling(initUrl,'first', unSubscribe)
+    const secondMarketLongPoll = useLongPolling(initUrl,'second', unSubscribe)
+    const thirdMarketLongPoll = useLongPolling(initUrl,'third', unSubscribe)
+    const firstMarketShortPoll = useShortPolling(initUrl,'first')
+    const secondMarketShortPoll = useShortPolling(initUrl,'second')
+    const thirdMarketShortPoll = useShortPolling(initUrl,'third')
+
+    const valueProvider = (responseLongPoll: ActualCurrenciesType | undefined,
+                           isError: boolean,
+                           responseShortPoll: ActualCurrenciesType | undefined) => {
+        if (isError) {
+            return initial
+        }
+        if (responseLongPoll) {
+            return calcCurrencyValues(responseLongPoll.rates)
+        }
+        if (responseShortPoll) {
+            return calcCurrencyValues(responseShortPoll.rates)
+        }
+        return initial
+    }
 
     return (
         <MainLayout title={'Cupcake currencies'}>
@@ -124,9 +120,9 @@ export default function Home() {
                                 <DrawTable key={currency}
                                            currency={currency}
                                            ind={ind}
-                                           firstMarket={firstMarket}
-                                           secondMarket={secondMarket}
-                                           thirdMarket={thirdMarket}
+                                           firstMarket={valueProvider(firstMarketLongPoll.data, firstMarketLongPoll.isError, firstMarketShortPoll.data )}
+                                           secondMarket={valueProvider(secondMarketLongPoll.data, secondMarketLongPoll.isError, secondMarketShortPoll.data)}
+                                           thirdMarket={valueProvider(thirdMarketLongPoll.data, thirdMarketLongPoll.isError, thirdMarketShortPoll.data)}
                                 />
                             ))}
                         </TableBody>
@@ -139,10 +135,9 @@ export default function Home() {
 }
 
 function DrawTable ({currency, ind, firstMarket, secondMarket, thirdMarket}: drawTablePropsType) {
-    const [lowest, setLowest] = useState<Array<number>>(initial)
-    useEffect(() => {
-        setLowest(findLowestValue(firstMarket, secondMarket, thirdMarket))
-    },[firstMarket, secondMarket, thirdMarket])
+    const lowest: Array<number> = useMemo(() => {
+        return findLowestValue(firstMarket, secondMarket, thirdMarket)
+    }, [firstMarket, secondMarket, thirdMarket])
     return (
         <StyledTableRow>
             <TableCell align="left">{currency}</TableCell>
@@ -156,5 +151,13 @@ function DrawTable ({currency, ind, firstMarket, secondMarket, thirdMarket}: dra
                        className={(thirdMarket[ind] === lowest[ind] && lowest[ind] !== 0) ? c.activeCell : c.passiveCell}
             >{thirdMarket[ind]}</TableCell>
         </StyledTableRow>
+    )
+}
+
+export default function Home() {
+    return (
+        <QueryClientProvider client={queryClient}>
+            <TableCurrency />
+        </QueryClientProvider>
     )
 }
