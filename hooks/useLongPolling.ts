@@ -11,6 +11,6 @@ const getCurrencyLongPoll = (initUrl: string, market: MarketsType) => {
     }
 }
 
-export default function useLongPolling(initUrl: string, market: MarketsType, isEnabled: boolean) {
-    return useQuery(`${market}/poll`, getCurrencyLongPoll(initUrl, market),{refetchInterval: 500, enabled: !isEnabled})
+export default function useLongPolling(initUrl: string, market: MarketsType) {
+    return useQuery(`${market}/poll`, getCurrencyLongPoll(initUrl, market),{refetchInterval: 500})
 }
