@@ -25,6 +25,8 @@ export const useLongPollFetch = (initialUrl: string, pollUrl: string, isEnabled:
                 setData(res)
                 if (type === 'long') await _fetch('long')
             }
+            await new Promise(resolve => setTimeout(resolve, 15000))
+            if (type === 'long') await _fetch('long')
         } catch (e) {
             setIsError(true)
             setIsLoading(false)
