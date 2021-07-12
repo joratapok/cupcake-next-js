@@ -1,44 +1,47 @@
 import { useEffect, useState } from "react";
 import { ActualCurrenciesType } from "../pages";
 
-type useLongPollFetchType = {
-    data: ActualCurrenciesType | undefined
+export type useLongPollFetchType<T> = {
+    data: T
     isError: boolean
-    isLoading: boolean
 }
 
-export const useLongPollFetch = (initialUrl: string, pollUrl: string, isEnabled: boolean): useLongPollFetchType => {
-    const [data, setData] = useState<ActualCurrenciesType | undefined>(undefined)
+export const useLongPollFetch = (longPollFetch: (market?: string) => Promise<Response>,
+                                 _fetch: (market?: string) => Promise<Response>,
+                                 isEnabled: boolean,
+                                 market?: string,
+                                 valueTransformer?: (responseLongPoll: ActualCurrenciesType | undefined,
+                                                    isError: boolean,
+                                                    responseFirstFetch: ActualCurrenciesType | undefined) => Array<number>): useLongPollFetchType<any> => {
+    const [longPollData, setLongPollData] = useState<ActualCurrenciesType | undefined>(undefined)
+    const [firstFetchData, setFirstFetchData] = useState<ActualCurrenciesType | undefined>(undefined)
     const [isError, setIsError] = useState<boolean>(false)
-    const [isLoading, setIsLoading] = useState<boolean>(false)
 
-    const _fetch = async (type: 'long' | 'default' = 'default') => {
-        if (!isEnabled && type === 'long') return
-        const url: string = type === 'long' ? `${initialUrl}${pollUrl}/poll` : `${initialUrl}${pollUrl}`
-        setIsLoading(true)
-        try {
-            const response = await fetch(url)
-            if (response.status === 200) {
-                setIsLoading(false)
-                setIsError(false)
-                const res =  await response.json()
-                setData(res)
-                if (type === 'long') await _fetch('long')
-            }
-            await new Promise(resolve => setTimeout(resolve, 15000))
-            if (type === 'long') await _fetch('long')
-        } catch (e) {
-            setIsError(true)
-            setIsLoading(false)
-            await new Promise(resolve => setTimeout(resolve, 15000))
-            if (type === 'long') await _fetch('long')
-        }
-    }
+    const data = (valueTransformer) ? valueTransformer(longPollData, isError, firstFetchData):
+        (longPollData) ? longPollData : firstFetchData
 
     useEffect(() => {
-        _fetch()
-        _fetch('long')
+        if (isEnabled) {
+            longPollFetch(market)
+                .then(res => res.json())
+                .then((res) => setLongPollData(res))
+                .catch(e => setIsError(true))
+        }
+    }, [isEnabled, longPollData, isError])
+
+    useEffect(() => {
+        _fetch(market)
+            .then(res => res.json())
+            .then((res) => setFirstFetchData(res))
+            .catch(e => console.log(e.message))
     }, [])
 
-    return { data, isError, isLoading }
+    useEffect(() => {
+        if (isError) {
+            new Promise(resolve => setTimeout(resolve, 15000))
+                .then(() => setIsError(false))
+        }
+    }, [isError])
+
+    return { data, isError }
 }

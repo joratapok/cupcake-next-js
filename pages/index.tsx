@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useState} from "react";
+import { useMemo } from "react"
 import { withStyles, Theme, createStyles, makeStyles } from '@material-ui/core/styles'
 import Paper from '@material-ui/core/Paper'
 import Container from '@material-ui/core/Container'
@@ -14,7 +14,7 @@ import { findLowestValue } from '../utils/findLowestValue'
 import { calcCurrencyValues } from '../utils/calcCurrensies'
 import { MainLayout } from '../Components/MainLayout'
 import c from '../styles/indexPage.module.css'
-import { useLongPollFetch } from "../hooks/useLongPollFetch";
+import { useLongPollFetch, useLongPollFetchType } from "../hooks/useLongPollFetch";
 
 export type ActualCurrenciesType = {
     rates: RatesType
@@ -63,34 +63,36 @@ const StyledTableRow = withStyles((theme: Theme) =>
     })
 )(TableRow)
 
-export const initial = [0, 0, 0, 0, 0, 0]
+const initial = [0, 0, 0, 0, 0, 0]
+const fetchMarketLongPoll = async (market: string = '') => {
+    return await fetch(`http://localhost:3000/api/v1/${market}/poll`)
+}
+const fetchMarket = async (market: string = '') => {
+    return await fetch(`http://localhost:3000/api/v1/${market}`)
+}
+const valueTransformer = (responseLongPoll: ActualCurrenciesType | undefined,
+                          isError: boolean,
+                          responseFirstFetch: ActualCurrenciesType | undefined) => {
+    if (isError) {
+        return initial
+    }
+    if (responseLongPoll) {
+        return calcCurrencyValues(responseLongPoll.rates)
+    }
+    if (responseFirstFetch) {
+        return calcCurrencyValues(responseFirstFetch.rates)
+    }
+    return initial
+}
 
 const TableCurrency = () => {
     const classes = useStyles()
-    const [isEnabled, setIsEnabled] = useState<boolean>(true)
     const markets: Array<MarketsType> = ['first', 'second', 'third']
     const currencies = ['RUB/CUPCAKE', 'USD/CUPCAKE', 'EUR/CUPCAKE', 'RUB/USD', 'RUB/EUR', 'EUR/USD']
-    const initUrl = 'http://localhost:3000/api/v1/'
 
-    useEffect(() => {
-        setIsEnabled(true)
-        return () => setIsEnabled(false)
-    }, [])
-
-    const firstMarket = useLongPollFetch(initUrl,'first', isEnabled)
-    const secondMarket = useLongPollFetch(initUrl,'second', isEnabled)
-    const thirdMarket = useLongPollFetch(initUrl,'third', isEnabled)
-
-    const valueProvider = (responseLongPoll: ActualCurrenciesType | undefined,
-                           isError: boolean) => {
-        if (isError) {
-            return initial
-        }
-        if (responseLongPoll) {
-            return calcCurrencyValues(responseLongPoll.rates)
-        }
-        return initial
-    }
+    const firstMarket: useLongPollFetchType<Array<number>> = useLongPollFetch(fetchMarketLongPoll, fetchMarket, true,'first', valueTransformer)
+    const secondMarket: useLongPollFetchType<Array<number>> = useLongPollFetch(fetchMarketLongPoll, fetchMarket, true,'second', valueTransformer)
+    const thirdMarket: useLongPollFetchType<Array<number>> = useLongPollFetch(fetchMarketLongPoll, fetchMarket, true,'third', valueTransformer)
 
     return (
         <MainLayout title={'Cupcake currencies'}>
@@ -108,9 +110,9 @@ const TableCurrency = () => {
                                 <DrawTable key={currency}
                                            currency={currency}
                                            ind={ind}
-                                           firstMarket={valueProvider(firstMarket.data, firstMarket.isError)}
-                                           secondMarket={valueProvider(secondMarket.data, secondMarket.isError)}
-                                           thirdMarket={valueProvider(thirdMarket.data, thirdMarket.isError)}
+                                           firstMarket={firstMarket.data}
+                                           secondMarket={secondMarket.data}
+                                           thirdMarket={thirdMarket.data}
                                 />
                             ))}
                         </TableBody>
