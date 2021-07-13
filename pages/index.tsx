@@ -79,17 +79,13 @@ const fetchMarket = (market: string): () => Promise<ActualCurrenciesType> => {
     }
 }
 
-const dataTransformer = (responseLongPoll: ActualCurrenciesType,
-                                               isError: boolean): Array<number> => {
+const dataTransformer = (responseLongPoll: ActualCurrenciesType): Array<number> => {
     return useMemo(() => {
-        if (isError) {
-            return initial
-        }
         if (responseLongPoll) {
             return calcCurrencyValues(responseLongPoll.rates)
         }
         return initial
-    }, [responseLongPoll, isError])
+    }, [responseLongPoll])
 }
 
 const TableCurrency = () => {

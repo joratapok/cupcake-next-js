@@ -4,7 +4,7 @@ type UseLongPollPropsType<U, T> = {
     fetchLongPoll: () => Promise<U>
     fetchInitialData: () => Promise<U>
     isEnabled: boolean
-    dataTransformer?: (data: U | undefined, isError: boolean) => T
+    dataTransformer?: (data: U | undefined) => T
 }
 type useLongPollReturnType<U, T> = {
     data: U | T | undefined
@@ -18,25 +18,30 @@ export const useLongPoll = <U, T> ({ fetchLongPoll,
     const [longPollData, setLongPollData] = useState<U | undefined>(undefined)
     const [isError, setIsError] = useState<boolean>(false)
 
-    const data = (dataTransformer) ? dataTransformer(longPollData, isError): longPollData
+    const data = (dataTransformer) ? dataTransformer(longPollData): longPollData
 
     useEffect(() => {
         let isMounted = true
         async function subscriber () {
-            const initialData = await fetchInitialData()
-            setLongPollData(initialData)
+            if (!isEnabled) return
+            try {
+                const initialData = await fetchInitialData()
+                setLongPollData(initialData)
+            }catch (e) {
+                console.log(e.message)
+            }
+
             while (isMounted) {
                 try {
                     const response = await fetchLongPoll()
                     setLongPollData(response)
                 }catch (e) {
                     setIsError(true)
+                    setLongPollData(undefined)
                 }
             }
         }
-        if (isEnabled) {
-            subscriber()
-        }
+        subscriber()
         return () => {
             isMounted = false
         }
