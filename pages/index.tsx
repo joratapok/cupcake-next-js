@@ -1,5 +1,5 @@
-import { useMemo } from "react"
-import { withStyles, Theme, createStyles, makeStyles } from '@material-ui/core/styles'
+import {useMemo} from "react"
+import {withStyles, Theme, createStyles, makeStyles} from '@material-ui/core/styles'
 import Paper from '@material-ui/core/Paper'
 import Container from '@material-ui/core/Container'
 import Table from '@material-ui/core/Table'
@@ -9,9 +9,9 @@ import TableContainer from '@material-ui/core/TableContainer'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import Link from 'next/link'
-import { findLowestValue } from '../utils/findLowestValue'
-import { calcCurrencyValues } from '../utils/calcCurrensies'
-import { MainLayout } from '../Components/MainLayout'
+import {findLowestValue} from '../utils/findLowestValue'
+import {calcCurrencyValues} from '../utils/calcCurrensies'
+import {MainLayout} from '../Components/MainLayout'
 import c from '../styles/indexPage.module.css'
 import {
     useLongPoll,
@@ -36,10 +36,8 @@ type drawTablePropsType = {
     secondMarket: Array<number>
     thirdMarket: Array<number>
 }
-type initRequestType<T> = {
-    firstMarketInitialResponse: T
-    secondMarketInitialResponse: T
-    thirdMarketInitialResponse: T
+type InitialRequestDataType = {
+    initialRequestData: Array<ActualCurrenciesType>
 }
 
 const useStyles = makeStyles({
@@ -72,8 +70,8 @@ const StyledTableRow = withStyles((theme: Theme) =>
 const initial = [0, 0, 0, 0, 0, 0]
 const creatorLongPollFetch = (market: string): () => Promise<ActualCurrenciesType> => {
     return async (): Promise<ActualCurrenciesType> => {
-            let response = await fetch(`http://localhost:3000/api/v1/${market}/poll`)
-            return await response.json()
+        let response = await fetch(`http://localhost:3000/api/v1/${market}/poll`)
+        return await response.json()
     }
 }
 const creatorInitialFetch = (market: string): () => Promise<ActualCurrenciesType> => {
@@ -92,26 +90,25 @@ const useDataTransformer = (responseLongPoll: ActualCurrenciesType): Array<numbe
     }, [responseLongPoll])
 }
 
-export default function Home ({firstMarketInitialResponse,
-                                  secondMarketInitialResponse,
-                                  thirdMarketInitialResponse}: initRequestType<ActualCurrenciesType>) {
+export default function Home({initialRequestData}: InitialRequestDataType) {
+
     const classes = useStyles()
     const markets: Array<MarketsType> = ['first', 'second', 'third']
     const currencies = ['RUB/CUPCAKE', 'USD/CUPCAKE', 'EUR/CUPCAKE', 'RUB/USD', 'RUB/EUR', 'EUR/USD']
 
     const firstMarket = useLongPoll<ActualCurrenciesType>({
-        fetchLongPoll: creatorLongPollFetch('first') ,
+        fetchLongPoll: creatorLongPollFetch('first'),
         fetchInitialData: creatorInitialFetch('first'),
         isEnabled: true,
 
     })
     const secondMarket = useLongPoll<ActualCurrenciesType>({
-        fetchLongPoll: creatorLongPollFetch('second') ,
+        fetchLongPoll: creatorLongPollFetch('second'),
         fetchInitialData: creatorInitialFetch('second'),
         isEnabled: true,
     })
     const thirdMarket = useLongPoll<ActualCurrenciesType>({
-        fetchLongPoll: creatorLongPollFetch('third') ,
+        fetchLongPoll: creatorLongPollFetch('third'),
         fetchInitialData: creatorInitialFetch('third'),
         isEnabled: false,
     })
@@ -119,9 +116,9 @@ export default function Home ({firstMarketInitialResponse,
     const firstMarketHandledData = useDataTransformer(firstMarket.data)
     const secondMarketHandledData = useDataTransformer(secondMarket.data)
     const thirdMarketHandledData = useDataTransformer(thirdMarket.data)
-    const firstMarketHandledInitialData = useDataTransformer(firstMarketInitialResponse)
-    const secondMarketHandledInitialData = useDataTransformer(secondMarketInitialResponse)
-    const thirdMarketHandledInitialData = useDataTransformer(thirdMarketInitialResponse)
+    const firstMarketHandledInitialData = useDataTransformer(initialRequestData[0])
+    const secondMarketHandledInitialData = useDataTransformer(initialRequestData[1])
+    const thirdMarketHandledInitialData = useDataTransformer(initialRequestData[2])
 
     return (
         <MainLayout title={'Cupcake currencies'}>
@@ -147,13 +144,13 @@ export default function Home ({firstMarketInitialResponse,
                         </TableBody>
                     </Table>
                 </TableContainer>
-                <Link  href="/unsubscribe"><a><h3>Unsubscribe long poll</h3></a></Link>
+                <Link href="/unsubscribe"><a><h3>Unsubscribe long poll</h3></a></Link>
             </Container>
         </MainLayout>
     )
 }
 
-function DrawTable ({currency, ind, firstMarket, secondMarket, thirdMarket}: drawTablePropsType) {
+function DrawTable({currency, ind, firstMarket, secondMarket, thirdMarket}: drawTablePropsType) {
     const lowest: Array<number> = useMemo(() => {
         return findLowestValue(firstMarket, secondMarket, thirdMarket)
     }, [firstMarket, secondMarket, thirdMarket])
@@ -173,18 +170,15 @@ function DrawTable ({currency, ind, firstMarket, secondMarket, thirdMarket}: dra
     )
 }
 
-Home.getInitialProps = async () => {
-    const initRequest: initRequestType<ActualCurrenciesType> = {
-        firstMarketInitialResponse: undefined,
-        secondMarketInitialResponse: undefined,
-        thirdMarketInitialResponse: undefined,
+export async function getServerSideProps() {
+    const initialRequestData = await Promise.all([
+        creatorInitialFetch('first')(),
+        creatorInitialFetch('second')(),
+        creatorInitialFetch('third')()
+    ])
+    return {
+        props: {
+            initialRequestData,
+        }
     }
-    try {
-        initRequest.firstMarketInitialResponse = await creatorInitialFetch('first')()
-        initRequest.secondMarketInitialResponse = await creatorInitialFetch('second')()
-        initRequest.thirdMarketInitialResponse = await creatorInitialFetch('third')()
-    } catch (e) {
-        console.log(e.message)
-    }
-    return initRequest
 }
