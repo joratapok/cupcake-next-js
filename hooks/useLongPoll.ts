@@ -25,7 +25,7 @@ export const useLongPoll = <U, T> ({ fetchLongPoll,
         async function subscriber () {
             const initialData = await fetchInitialData()
             setLongPollData(initialData)
-            while (isMounted) {
+            while (isMounted && isEnabled) {
                 try {
                     const response = await fetchLongPoll()
                     setLongPollData(response)
