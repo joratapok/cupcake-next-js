@@ -9,7 +9,6 @@ import TableContainer from '@material-ui/core/TableContainer'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import Link from 'next/link'
-import { QueryClientProvider, QueryClient } from 'react-query'
 import { findLowestValue } from '../utils/findLowestValue'
 import { calcCurrencyValues } from '../utils/calcCurrensies'
 import { MainLayout } from '../Components/MainLayout'
@@ -36,6 +35,11 @@ type drawTablePropsType = {
     firstMarket: Array<number>
     secondMarket: Array<number>
     thirdMarket: Array<number>
+}
+type initRequestType<T> = {
+    firstMarketInitialResponse: T
+    secondMarketInitialResponse: T
+    thirdMarketInitialResponse: T
 }
 
 const useStyles = makeStyles({
@@ -88,7 +92,9 @@ const useDataTransformer = (responseLongPoll: ActualCurrenciesType): Array<numbe
     }, [responseLongPoll])
 }
 
-const TableCurrency = () => {
+export default function Home ({firstMarketInitialResponse,
+                                  secondMarketInitialResponse,
+                                  thirdMarketInitialResponse}: initRequestType<ActualCurrenciesType>) {
     const classes = useStyles()
     const markets: Array<MarketsType> = ['first', 'second', 'third']
     const currencies = ['RUB/CUPCAKE', 'USD/CUPCAKE', 'EUR/CUPCAKE', 'RUB/USD', 'RUB/EUR', 'EUR/USD']
@@ -113,6 +119,9 @@ const TableCurrency = () => {
     const firstMarketHandledData = useDataTransformer(firstMarket.data)
     const secondMarketHandledData = useDataTransformer(secondMarket.data)
     const thirdMarketHandledData = useDataTransformer(thirdMarket.data)
+    const firstMarketHandledInitialData = useDataTransformer(firstMarketInitialResponse)
+    const secondMarketHandledInitialData = useDataTransformer(secondMarketInitialResponse)
+    const thirdMarketHandledInitialData = useDataTransformer(thirdMarketInitialResponse)
 
     return (
         <MainLayout title={'Cupcake currencies'}>
@@ -130,9 +139,9 @@ const TableCurrency = () => {
                                 <DrawTable key={currency}
                                            currency={currency}
                                            ind={ind}
-                                           firstMarket={firstMarketHandledData}
-                                           secondMarket={secondMarketHandledData}
-                                           thirdMarket={thirdMarketHandledData}
+                                           firstMarket={firstMarketHandledData || firstMarketHandledInitialData}
+                                           secondMarket={secondMarketHandledData || secondMarketHandledInitialData}
+                                           thirdMarket={thirdMarketHandledData || thirdMarketHandledInitialData}
                                 />
                             ))}
                         </TableBody>
@@ -164,11 +173,18 @@ function DrawTable ({currency, ind, firstMarket, secondMarket, thirdMarket}: dra
     )
 }
 
-export default function Home() {
-    const queryClient = new QueryClient()
-    return (
-        <QueryClientProvider client={queryClient}>
-            <TableCurrency />
-        </QueryClientProvider>
-    )
+Home.getInitialProps = async () => {
+    const initRequest: initRequestType<ActualCurrenciesType> = {
+        firstMarketInitialResponse: undefined,
+        secondMarketInitialResponse: undefined,
+        thirdMarketInitialResponse: undefined,
+    }
+    try {
+        initRequest.firstMarketInitialResponse = await creatorInitialFetch('first')()
+        initRequest.secondMarketInitialResponse = await creatorInitialFetch('second')()
+        initRequest.thirdMarketInitialResponse = await creatorInitialFetch('third')()
+    } catch (e) {
+        console.log(e.message)
+    }
+    return initRequest
 }

@@ -21,7 +21,7 @@ export const useLongPoll = <U> ({ fetchLongPoll,
         async function subscriber () {
             try {
                 const initialData = await fetchInitialData()
-                if (isEnabled) setLongPollData(initialData)
+                isSubscribed && setLongPollData(initialData)
             }catch (e) {
                 console.log(e.message)
             }
@@ -29,10 +29,10 @@ export const useLongPoll = <U> ({ fetchLongPoll,
             while (isSubscribed) {
                 try {
                     const response = await fetchLongPoll()
-                    if (isEnabled) setLongPollData(response)
+                    isSubscribed && setLongPollData(response)
                 }catch (e) {
                     setIsError(true)
-                    if (isEnabled) setLongPollData(undefined)
+                    isSubscribed && setLongPollData(undefined)
                 }
             }
         }
