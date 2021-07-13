@@ -38,7 +38,6 @@ type drawTablePropsType = {
     thirdMarket: Array<number>
 }
 
-
 const useStyles = makeStyles({
     table: {
         minWidth: 500,
@@ -112,7 +111,7 @@ const TableCurrency = () => {
     const thirdMarketArguments = {
         fetchLongPoll: fetchLongPoll('third') ,
         fetchInitialData: fetchMarket('third'),
-        isEnabled: true,
+        isEnabled: false,
         dataTransformer
     }
 
