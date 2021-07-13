@@ -66,20 +66,20 @@ const StyledTableRow = withStyles((theme: Theme) =>
 )(TableRow)
 
 const initial = [0, 0, 0, 0, 0, 0]
-const fetchLongPoll = (market: string): () => Promise<ActualCurrenciesType> => {
+const creatorLongPollFetch = (market: string): () => Promise<ActualCurrenciesType> => {
     return async (): Promise<ActualCurrenciesType> => {
             let response = await fetch(`http://localhost:3000/api/v1/${market}/poll`)
             return await response.json()
     }
 }
-const fetchMarket = (market: string): () => Promise<ActualCurrenciesType> => {
+const creatorInitialFetch = (market: string): () => Promise<ActualCurrenciesType> => {
     return async (): Promise<ActualCurrenciesType> => {
         let response = await fetch(`http://localhost:3000/api/v1/${market}`)
         return await response.json()
     }
 }
 
-const dataTransformer = (responseLongPoll: ActualCurrenciesType): Array<number> => {
+const useDataTransformer = (responseLongPoll: ActualCurrenciesType): Array<number> => {
     return useMemo(() => {
         if (responseLongPoll) {
             return calcCurrencyValues(responseLongPoll.rates)
@@ -92,28 +92,27 @@ const TableCurrency = () => {
     const classes = useStyles()
     const markets: Array<MarketsType> = ['first', 'second', 'third']
     const currencies = ['RUB/CUPCAKE', 'USD/CUPCAKE', 'EUR/CUPCAKE', 'RUB/USD', 'RUB/EUR', 'EUR/USD']
-    const firstMarketArguments = {
-        fetchLongPoll: fetchLongPoll('first') ,
-        fetchInitialData: fetchMarket('first'),
-        isEnabled: true,
-        dataTransformer
-    }
-    const secondMarketArguments = {
-        fetchLongPoll: fetchLongPoll('second') ,
-        fetchInitialData: fetchMarket('second'),
-        isEnabled: true,
-        dataTransformer
-    }
-    const thirdMarketArguments = {
-        fetchLongPoll: fetchLongPoll('third') ,
-        fetchInitialData: fetchMarket('third'),
-        isEnabled: false,
-        dataTransformer
-    }
 
-    const firstMarket = useLongPoll<ActualCurrenciesType, Array<number>>(firstMarketArguments)
-    const secondMarket = useLongPoll<ActualCurrenciesType, Array<number>>(secondMarketArguments)
-    const thirdMarket = useLongPoll<ActualCurrenciesType, Array<number>>(thirdMarketArguments)
+    const firstMarket = useLongPoll<ActualCurrenciesType>({
+        fetchLongPoll: creatorLongPollFetch('first') ,
+        fetchInitialData: creatorInitialFetch('first'),
+        isEnabled: true,
+
+    })
+    const secondMarket = useLongPoll<ActualCurrenciesType>({
+        fetchLongPoll: creatorLongPollFetch('second') ,
+        fetchInitialData: creatorInitialFetch('second'),
+        isEnabled: true,
+    })
+    const thirdMarket = useLongPoll<ActualCurrenciesType>({
+        fetchLongPoll: creatorLongPollFetch('third') ,
+        fetchInitialData: creatorInitialFetch('third'),
+        isEnabled: false,
+    })
+
+    const firstMarketHandledData = useDataTransformer(firstMarket.data)
+    const secondMarketHandledData = useDataTransformer(secondMarket.data)
+    const thirdMarketHandledData = useDataTransformer(thirdMarket.data)
 
     return (
         <MainLayout title={'Cupcake currencies'}>
@@ -131,9 +130,9 @@ const TableCurrency = () => {
                                 <DrawTable key={currency}
                                            currency={currency}
                                            ind={ind}
-                                           firstMarket={firstMarket.data}
-                                           secondMarket={secondMarket.data}
-                                           thirdMarket={thirdMarket.data}
+                                           firstMarket={firstMarketHandledData}
+                                           secondMarket={secondMarketHandledData}
+                                           thirdMarket={thirdMarketHandledData}
                                 />
                             ))}
                         </TableBody>

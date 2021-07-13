@@ -1,51 +1,46 @@
 import { useEffect, useState } from "react";
 
-type UseLongPollPropsType<U, T> = {
+type UseLongPollPropsType<U> = {
     fetchLongPoll: () => Promise<U>
     fetchInitialData: () => Promise<U>
     isEnabled: boolean
-    dataTransformer?: (data: U | undefined) => T
 }
-type useLongPollReturnType<U, T> = {
-    data: U | T | undefined
+type useLongPollReturnType<U> = {
+    data: U | undefined
     isError: boolean
 }
 
-export const useLongPoll = <U, T> ({ fetchLongPoll,
+export const useLongPoll = <U> ({ fetchLongPoll,
                                  fetchInitialData,
-                                 isEnabled,
-                                 dataTransformer }: UseLongPollPropsType<U, T>): useLongPollReturnType<U, T> => {
+                                 isEnabled }: UseLongPollPropsType<U>): useLongPollReturnType<U> => {
     const [longPollData, setLongPollData] = useState<U | undefined>(undefined)
     const [isError, setIsError] = useState<boolean>(false)
 
-    const data = (dataTransformer) ? dataTransformer(longPollData): longPollData
-
     useEffect(() => {
-        let isMounted = true
+        let isSubscribed = isEnabled
         async function subscriber () {
-            if (!isEnabled) return
             try {
                 const initialData = await fetchInitialData()
-                setLongPollData(initialData)
+                if (isEnabled) setLongPollData(initialData)
             }catch (e) {
                 console.log(e.message)
             }
 
-            while (isMounted) {
+            while (isSubscribed) {
                 try {
                     const response = await fetchLongPoll()
-                    setLongPollData(response)
+                    if (isEnabled) setLongPollData(response)
                 }catch (e) {
                     setIsError(true)
-                    setLongPollData(undefined)
+                    if (isEnabled) setLongPollData(undefined)
                 }
             }
         }
-        subscriber()
+        if (isSubscribed) subscriber()
         return () => {
-            isMounted = false
+            isSubscribed = false
         }
-    }, [])
+    }, [isEnabled])
 
-    return { data, isError }
+    return { data: longPollData, isError }
 }
