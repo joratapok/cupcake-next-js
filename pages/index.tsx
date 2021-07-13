@@ -14,14 +14,16 @@ import { findLowestValue } from '../utils/findLowestValue'
 import { calcCurrencyValues } from '../utils/calcCurrensies'
 import { MainLayout } from '../Components/MainLayout'
 import c from '../styles/indexPage.module.css'
-import { useLongPollFetch, useLongPollFetchType } from "../hooks/useLongPollFetch";
+import {
+    useLongPoll,
+} from "../hooks/useLongPoll";
 
 export type ActualCurrenciesType = {
     rates: RatesType
     timestamp: number
     base: string
     date: string
-}
+} | undefined
 export type RatesType = {
     'RUB': number
     'USD': number
@@ -35,6 +37,7 @@ type drawTablePropsType = {
     secondMarket: Array<number>
     thirdMarket: Array<number>
 }
+
 
 const useStyles = makeStyles({
     table: {
@@ -64,35 +67,58 @@ const StyledTableRow = withStyles((theme: Theme) =>
 )(TableRow)
 
 const initial = [0, 0, 0, 0, 0, 0]
-const fetchMarketLongPoll = async (market: string = '') => {
-    return await fetch(`http://localhost:3000/api/v1/${market}/poll`)
+const fetchLongPoll = (market: string): () => Promise<ActualCurrenciesType> => {
+    return async (): Promise<ActualCurrenciesType> => {
+            let response = await fetch(`http://localhost:3000/api/v1/${market}/poll`)
+            return await response.json()
+    }
 }
-const fetchMarket = async (market: string = '') => {
-    return await fetch(`http://localhost:3000/api/v1/${market}`)
+const fetchMarket = (market: string): () => Promise<ActualCurrenciesType> => {
+    return async (): Promise<ActualCurrenciesType> => {
+        let response = await fetch(`http://localhost:3000/api/v1/${market}`)
+        return await response.json()
+    }
 }
-const valueTransformer = (responseLongPoll: ActualCurrenciesType | undefined,
-                          isError: boolean,
-                          responseFirstFetch: ActualCurrenciesType | undefined) => {
-    if (isError) {
+
+const dataTransformer = (responseLongPoll: ActualCurrenciesType,
+                                               isError: boolean): Array<number> => {
+    return useMemo(() => {
+        if (isError) {
+            return initial
+        }
+        if (responseLongPoll) {
+            return calcCurrencyValues(responseLongPoll.rates)
+        }
         return initial
-    }
-    if (responseLongPoll) {
-        return calcCurrencyValues(responseLongPoll.rates)
-    }
-    if (responseFirstFetch) {
-        return calcCurrencyValues(responseFirstFetch.rates)
-    }
-    return initial
+    }, [responseLongPoll, isError])
 }
 
 const TableCurrency = () => {
     const classes = useStyles()
     const markets: Array<MarketsType> = ['first', 'second', 'third']
     const currencies = ['RUB/CUPCAKE', 'USD/CUPCAKE', 'EUR/CUPCAKE', 'RUB/USD', 'RUB/EUR', 'EUR/USD']
+    const firstMarketArguments = {
+        fetchLongPoll: fetchLongPoll('first') ,
+        fetchInitialData: fetchMarket('first'),
+        isEnabled: true,
+        dataTransformer
+    }
+    const secondMarketArguments = {
+        fetchLongPoll: fetchLongPoll('second') ,
+        fetchInitialData: fetchMarket('second'),
+        isEnabled: true,
+        dataTransformer
+    }
+    const thirdMarketArguments = {
+        fetchLongPoll: fetchLongPoll('third') ,
+        fetchInitialData: fetchMarket('third'),
+        isEnabled: true,
+        dataTransformer
+    }
 
-    const firstMarket: useLongPollFetchType<Array<number>> = useLongPollFetch(fetchMarketLongPoll, fetchMarket, true,'first', valueTransformer)
-    const secondMarket: useLongPollFetchType<Array<number>> = useLongPollFetch(fetchMarketLongPoll, fetchMarket, true,'second', valueTransformer)
-    const thirdMarket: useLongPollFetchType<Array<number>> = useLongPollFetch(fetchMarketLongPoll, fetchMarket, true,'third', valueTransformer)
+    const firstMarket = useLongPoll<ActualCurrenciesType, Array<number>>(firstMarketArguments)
+    const secondMarket = useLongPoll<ActualCurrenciesType, Array<number>>(secondMarketArguments)
+    const thirdMarket = useLongPoll<ActualCurrenciesType, Array<number>>(thirdMarketArguments)
 
     return (
         <MainLayout title={'Cupcake currencies'}>
